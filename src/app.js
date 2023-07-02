@@ -16,7 +16,7 @@ const currentTime = dayjs().format("HH:mm:ss");
 // Conexão Banco de Dados
 const mongoClient = new MongoClient(process.env.DATABASE_URL);
 try {
-  await mongoClient.connect(); // top level await
+  await mongoClient.connect();
   console.log("Banco de dados conectado! 127.0.0.1:27017!");
 } catch (error) {
   (error) => console.log(error.message);
@@ -44,7 +44,7 @@ app.post("/participants", async (req, res) => {
     await db.collection("participants").insertOne({ name, lastStatus: Date.now() });
     await db
       .collection("messages")
-      .insertOne({ name, to: "Todos", text: "entra na sala...", type: "status", time: currentTime });
+      .insertOne({ from: name, to: "Todos", text: "entra na sala...", type: "status", time: currentTime });
 
     res.sendStatus(201);
   } catch (err) {
@@ -61,7 +61,40 @@ app.get("/participants", async (req, res) => {
   }
 });
 
-app.post("/messages", async (req, res) => {});
+app.post("/messages", async (req, res) => {
+  const { to, text, type } = req.body;
+  const user = req.headers.user;
+
+  const participant = await db.collection("participants").findOne({ name: user });
+  if (!participant) return res.status(409).send("Esse usuário não existe ou foi desconectado!");
+
+  const schemaMessage = Joi.object({
+    to: Joi.string().required(),
+    text: Joi.string().required(),
+    type: Joi.string().valid("message", "private_message").required(),
+    from: Joi.string().valid(participant.name).required(),
+  });
+
+  const validation = schemaMessage.validate(req.body, { abortEarly: false });
+
+  if (validation.error) {
+    const errors = validation.error.details.map((detail) => detail.message);
+    return res.status(422).send(errors);
+  }
+
+  const message = {
+    from: user,
+    ...req.body,
+    time: currentTime,
+  };
+
+  try {
+    await db.collection("messages").insertOne(message);
+    res.sendStatus(201);
+  } catch (err) {
+    res.sendStatus(422);
+  }
+});
 
 app.get("/messages", async (req, res) => {});
 
