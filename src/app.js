@@ -62,17 +62,15 @@ app.get("/participants", async (req, res) => {
 });
 
 app.post("/messages", async (req, res) => {
-  const { to, text, type } = req.body;
   const user = req.headers.user;
 
   const participant = await db.collection("participants").findOne({ name: user });
-  if (!participant) return res.status(409).send("Esse usuário não existe ou foi desconectado!");
+  if (!participant) return res.status(422).send("Esse usuário não existe ou foi desconectado!");
 
   const schemaMessage = Joi.object({
     to: Joi.string().required(),
     text: Joi.string().required(),
     type: Joi.string().valid("message", "private_message").required(),
-    from: Joi.string().valid(participant.name).required(),
   });
 
   const validation = schemaMessage.validate(req.body, { abortEarly: false });
