@@ -116,7 +116,39 @@ app.get("/messages", async (req, res) => {
   }
 });
 
-app.post("/status", async (req, res) => {});
+app.post("/status", async (req, res) => {
+  const { user } = req.headers;
+
+  if (!user) return res.sendStatus(404);
+  const participant = await db.collection("participants").findOne({ name: user });
+  if (!participant) return res.sendStatus(404);
+
+  try {
+    await db.collection("participants").updateOne({ name: user }, { $set: { lastStatus: Date.now() } });
+    res.sendStatus(200);
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+
+setInterval(deleteAfk, 15000);
+
+async function deleteAfk() {
+  const users = await db.collection("participants").find().toArray();
+
+  users.forEach(async (user) => {
+    if (Date.now() - user.lastStatus > 10000) {
+      await db.collection("participants").deleteOne({ _id: new ObjectId(user._id) });
+      await db.collection("messages").insertOne({
+        from: user.name,
+        to: "Todos",
+        text: "sai da sala...",
+        type: "status",
+        time: currentTime,
+      });
+    }
+  });
+}
 
 // Ligar a API
 const PORT = 5000;
