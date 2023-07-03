@@ -94,7 +94,27 @@ app.post("/messages", async (req, res) => {
   }
 });
 
-app.get("/messages", async (req, res) => {});
+app.get("/messages", async (req, res) => {
+  const { limit } = req.query;
+  const { user } = req.headers;
+
+  try {
+    const showMessages = await db
+      .collection("messages")
+      .find({ $or: [{ from: user }, { to: { $in: ["Todos", user] } }] })
+      .toArray();
+
+    if (limit) {
+      const limitedSchema = Joi.number().min(1);
+      const { errors } = limitedSchema.validate(limit);
+      if (errors) return res.status(422).send(errors.message);
+      return res.send(showMessages.slice(-limit));
+    }
+    res.send(showMessages);
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
 
 app.post("/status", async (req, res) => {});
 
