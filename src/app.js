@@ -106,10 +106,13 @@ app.get("/messages", async (req, res) => {
 
     if (limit) {
       const limitedSchema = Joi.number().min(1);
-      const { errors } = limitedSchema.validate(limit);
-      if (errors) return res.status(422).send(errors.message);
+      const { error } = limitedSchema.validate(limit);
+      if (error) {
+        return res.status(422).send(error.message);
+      }
       return res.send(showMessages.slice(-limit));
     }
+
     res.send(showMessages);
   } catch (error) {
     res.status(500).send(error.message);
